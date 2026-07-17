@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "newlife-website",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3001", "--directory", "C:\\Users\\micha\\Documents\\GitHub\\NewlifeWebsite"],
+      "port": 3001
+    },
+    {
+      "name": "acf-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3002", "--directory", "C:\\Users\\micha\\Documents\\GitHub\\AlbertaMusicFestival"],
+      "port": 3002
+    }
+  ]
+}
