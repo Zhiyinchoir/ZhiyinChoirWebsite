@@ -12,6 +12,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "3002", "--directory", "C:\\Users\\micha\\Documents\\GitHub\\AlbertaMusicFestival"],
       "port": 3002
+    },
+    {
+      "name": "ladysinger-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3003", "--directory", "C:\\Users\\micha\\Documents\\GitHub\\LadySingerWebsite"],
+      "port": 3003
     }
   ]
 }
