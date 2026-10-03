@@ -168,6 +168,18 @@ nav.top{background:transparent}
 .album-card .title{font-size:0.88rem;font-weight:500;color:var(--ink)}
 .album-card .arrow{position:absolute;right:1rem;top:50%;transform:translateY(-50%);color:var(--gold);opacity:0;transition:opacity 0.2s,right 0.2s;font-size:1rem}
 .album-card:hover .arrow{opacity:1;right:0.8rem}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:1.5rem}
+.gallery{border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);background:var(--ink)}
+.gallery .gal-stage{position:relative;aspect-ratio:3/2;background:var(--ink)}
+.gallery .asl-slide{position:absolute;inset:0}
+.gallery .asl-slide img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery .asl-dots{flex-wrap:wrap;justify-content:center;width:max-content;max-width:90%}
+.gallery .gal-count{position:absolute;top:12px;right:12px;z-index:4;background:rgba(0,0,0,0.45);color:#fff;font-size:0.72rem;letter-spacing:0.08em;padding:3px 10px;border-radius:20px}
+.gallery .asl-caption-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left}
+.gallery .gal-date{font-size:0.7rem;color:var(--gold);letter-spacing:0.06em}
+.gallery .gal-title{font-size:0.9rem;font-weight:500;color:#fff;line-height:1.4}
+.gallery .gal-open{flex-shrink:0;color:var(--gold);font-size:0.75rem;text-decoration:none;white-space:nowrap}
+.gallery .gal-open:hover{color:var(--gold-lt)}
 
 .contact-body{padding:4rem 10vw;display:grid;grid-template-columns:1fr 1fr;gap:6vw;align-items:start}
 .contact-block h3{font-family:'Noto Serif SC',serif;font-size:1.3rem;margin-bottom:1.8rem;padding-bottom:0.8rem;border-bottom:2px solid var(--gold)}
@@ -475,6 +487,8 @@ footer a{color:rgba(255,255,255,0.25)}
     <p>Over 20 years of performances, community events &amp; memories · 二十餘年的演出與回憶</p>
   </div>
   <div class="photos-body">
+    <!-- 2025+ galleries, filled at runtime from the Google Drive folders configured in DRIVE_CONFIG (see script). -->
+    <div id="drivePhotos"></div>
     <div class="year-group reveal"><div class="year-label"><span class="yr-num">2024</span></div><div class="album-grid">
       <a class="album-card" href="https://photos.app.goo.gl/YQAF3MMvMCprmpHQ8" target="_blank"><div class="date">September 23, 2024</div><div class="title">National Music Center 中秋演出</div><span class="arrow">→</span></a>
       <a class="album-card" href="https://photos.google.com/share/AF1QipOVA-ZUZAjIL0YomHHa8EYVhX3uZWWxHpv4FLl3JenOsVdN7qn0z9ei_i1X4B-Tow?key=RVBkbkdfN2w1NEJUOW5WQ0pVd25EZ2hqRUJnVWZR" target="_blank"><div class="date">June 16, 2024</div><div class="title">知音20周年音樂會 · 20th Anniversary Concert</div><span class="arrow">→</span></a>
@@ -667,7 +681,7 @@ function showPage(id){
 // About photo slideshow
 (function(){
   let cur=0;
-  const sel=s=>document.querySelectorAll(s);
+  const sel=s=>document.querySelectorAll('.about-slideshow '+s);
   function goTo(n){
     const slides=sel('.asl-slide'),dots=sel('.asl-dot'),caps=sel('.asl-cap');
     [slides[cur],dots[cur],caps[cur]].forEach(el=>el.classList.remove('active'));
@@ -684,6 +698,7 @@ function showPage(id){
   let cur=0;
   const slides=document.querySelectorAll('.hero-slide');
   const dots=document.querySelectorAll('.hero-dot');
+  if(!slides.length)return;
   function goTo(n){
     slides[cur].classList.remove('active');
     dots[cur].classList.remove('active');
@@ -772,6 +787,102 @@ window.addEventListener('scroll',()=>{
   const pt=document.getElementById('parallaxText');
   if(pt)pt.style.transform='translateX(-'+(window.scrollY*0.07%50)+'%)';
 },{passive:true});
+
+// Gallery slideshows (one per event)
+const galPos={};
+function galGoTo(id,n){
+  const g=document.getElementById('gal-'+id);
+  const slides=g.querySelectorAll('.asl-slide'),dots=g.querySelectorAll('.asl-dot');
+  const cur=galPos[id]||0,next=(n+slides.length)%slides.length;
+  slides[cur].classList.remove('active');slides[next].classList.add('active');
+  if(dots.length){dots[cur].classList.remove('active');dots[next].classList.add('active');}
+  g.querySelector('.gal-count').textContent=(next+1)+' / '+slides.length;
+  galPos[id]=next;
+}
+function galStep(id,d){galGoTo(id,(galPos[id]||0)+d);}
+setInterval(()=>{
+  if(!document.getElementById('page-photos').classList.contains('active'))return;
+  document.querySelectorAll('.gallery').forEach(g=>{
+    if(!g.matches(':hover')&&g.querySelectorAll('.asl-slide').length>1)galStep(g.id.slice(4),1);
+  });
+},4500);
+
+// Photo galleries from Google Drive (2025 onwards; older albums are the Google Photos links in the page).
+// Put one sub-folder per event inside the parent folder — either directly, or inside a year
+// folder ("2025", "2026", ...). Name event folders "YYYYMMDD-Event title", "YYYY-MM-DD Event title"
+// or "YYYY年M月D日Event title" (in the last two the day may be left out). Newest events are shown first, photos
+// inside each folder are sorted by file name. Folders and photos must be shared as
+// "Anyone with the link can view". Top-level folders without a leading year are ignored.
+const DRIVE_CONFIG={
+ apiKey:'AIzaSyC-3t3vBoXHfWosFOQkfu7Pjz1xw3_N5DQ',
+ parentFolderId:'1UpAQehtNvMiSF9vlaNaEpGlduf15xVRE'
+};
+async function loadDriveGalleries(){
+  const {apiKey,parentFolderId}=DRIVE_CONFIG;
+  if(!apiKey||!parentFolderId)return;
+  const API='https://www.googleapis.com/drive/v3/files';
+  const FOLDER="mimeType='application/vnd.google-apps.folder'";
+  const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  async function list(parent,type){
+    const files=[];let pageToken='';
+    do{
+      // supportsAllDrives/includeItemsFromAllDrives are required for folders in a Shared drive.
+      const params=new URLSearchParams({q:`'${parent}' in parents and ${type} and trashed=false`,orderBy:'name',key:apiKey,
+        pageSize:'1000',fields:'nextPageToken,files(id,name)',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});
+      if(pageToken)params.set('pageToken',pageToken);
+      const res=await fetch(API+'?'+params);
+      if(!res.ok)throw new Error('Drive API '+res.status+': '+(await res.text()));
+      const data=await res.json();
+      files.push(...data.files);pageToken=data.nextPageToken||'';
+    }while(pageToken);
+    return files;
+  }
+  const images=id=>list(id,"mimeType contains 'image/'");
+  // "20250712-Title", "2025-07-12 Title", "2025年7月12日Title", "2025-07 Title"; a leading "001-" style prefix is skipped.
+  function parseName(name,year){
+    const m=name.match(/^(?:\d{1,3}[-_ ])?(\d{4})(?:(\d{2})(\d{2})|[-./年](\d{1,2})(?:[-./月](\d{1,2})日?|月)?)\s*[-–·_]?\s*(.*)$/);
+    if(!m)return year?{y:year,m:0,d:0,date:'',title:name}:null;
+    const mo=+(m[2]||m[4]),day=+(m[3]||m[5]||0);
+    const fmt=day?{year:'numeric',month:'long',day:'numeric'}:{year:'numeric',month:'long'};
+    return{y:+m[1],m:mo,d:day,title:m[6]||name,
+      date:new Date(+m[1],mo-1,day||1).toLocaleDateString('en-US',fmt)};
+  }
+  function render(ev,i){
+    const id='drive-'+i,n=ev.photos.length;
+    const slides=ev.photos.map((p,j)=>`<div class="asl-slide${j?'':' active'}"><img src="https://lh3.googleusercontent.com/d/${esc(p.id)}=w1600" alt="${esc(ev.title)} — photo ${j+1}" loading="lazy"></div>`).join('');
+    const dots=n>1&&n<=20?`<div class="asl-dots">${ev.photos.map((p,j)=>`<button class="asl-dot${j?'':' active'}" onclick="galGoTo('${id}',${j})" aria-label="Photo ${j+1}"></button>`).join('')}</div>`:'';
+    const arrows=n>1?`<button class="asl-arrow asl-prev" onclick="galStep('${id}',-1)" aria-label="Previous">&#8592;</button><button class="asl-arrow asl-next" onclick="galStep('${id}',1)" aria-label="Next">&#8594;</button>`:'';
+    return `<div class="gallery" id="gal-${id}">
+      <div class="gal-stage">${slides}${arrows}${dots}<span class="gal-count">1 / ${n}</span></div>
+      <div class="asl-caption-bar">
+        <div>${ev.date?`<div class="gal-date">${esc(ev.date)}</div>`:''}<div class="gal-title">${esc(ev.title)}</div></div>
+        <a class="gal-open" href="https://drive.google.com/drive/folders/${esc(ev.id)}" target="_blank">全部照片 All ↗</a>
+      </div>
+    </div>`;
+  }
+  try{
+    const found=[];
+    await Promise.all((await list(parentFolderId,FOLDER)).map(async f=>{
+      const ev=parseName(f.name);
+      if(ev)return found.push({...ev,id:f.id});
+      const yr=f.name.match(/^(\d{4})(?!\d)/);
+      if(!yr)return;
+      // Year folder: its sub-folders are events; photos placed directly in it form one more album.
+      found.push({y:+yr[1],m:0,d:0,date:'',title:f.name+' 照片 Photos',id:f.id});
+      (await list(f.id,FOLDER)).forEach(s=>found.push({...parseName(s.name,+yr[1]),id:s.id}));
+    }));
+    const events=(await Promise.all(found.map(async e=>({...e,photos:await images(e.id)})))).filter(e=>e.photos.length);
+    if(!events.length)return;
+    events.sort((a,b)=>b.y-a.y||b.m-a.m||b.d-a.d||a.title.localeCompare(b.title));
+    const years=[...new Set(events.map(e=>e.y))];
+    let i=0;
+    document.getElementById('drivePhotos').innerHTML=years.map(y=>`<div class="year-group reveal"><div class="year-label"><span class="yr-num">${y}</span></div><div class="gallery-grid">
+      ${events.filter(e=>e.y===y).map(e=>render(e,i++)).join('\n')}
+    </div></div>`).join('\n');
+    initReveal();
+  }catch(e){console.warn('Google Drive galleries unavailable.',e);}
+}
+loadDriveGalleries();
 
 // Members login
 const MEMBER_CREDS={

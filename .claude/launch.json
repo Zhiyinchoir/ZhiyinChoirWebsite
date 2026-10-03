@@ -18,6 +18,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "3003", "--directory", "C:\\Users\\micha\\Documents\\GitHub\\LadySingerWebsite"],
       "port": 3003
+    },
+    {
+      "name": "zhiyin-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3004", "--directory", "C:\\Users\\micha\\Documents\\GitHub\\ZhiyinChoirWebsite"],
+      "port": 3004
     }
   ]
 }
